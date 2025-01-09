@@ -1,11 +1,12 @@
 import gradio as gr
 from PIL import Image
 import numpy as np
-import cv2
+import os
 from models.domain_classifier import DomainClassifier
+from utils.enhancement import ImageEnhancer
 
 def process_image(input_image):
-    """Process the input image and return enhanced version"""
+    """Process the input image with advanced enhancements"""
     if input_image is None:
         return None, "Please upload an image"
     
@@ -22,25 +23,32 @@ def process_image(input_image):
         classifier = DomainClassifier()
         domain, confidence = classifier.classify(temp_path)
         
-        # Convert to cv2 format for processing
-        img_cv = cv2.cvtColor(np.array(input_image), cv2.COLOR_RGB2BGR)
-        
-        # Apply enhancement based on domain
+        # Apply domain-specific enhancement
         if domain == 'product':
-            enhanced = cv2.convertScaleAbs(img_cv, alpha=1.3, beta=0)
+            enhanced_image = ImageEnhancer.enhance_product(input_image)
+            details = "Enhanced product details, sharpness, and color accuracy"
         elif domain == 'document':
-            enhanced = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
-            enhanced = cv2.adaptiveThreshold(enhanced, 255, 
-                cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-            return Image.fromarray(enhanced), f"Detected: {domain} (Confidence: {confidence:.2%})"
+            enhanced_image = ImageEnhancer.enhance_document(input_image)
+            details = "Improved readability and text clarity"
         else:  # landscape
-            enhanced = cv2.convertScaleAbs(img_cv, alpha=1.2, beta=10)
+            enhanced_image = ImageEnhancer.enhance_landscape(input_image)
+            details = "Enhanced colors, contrast, and natural features"
         
-        # Convert back to RGB
-        enhanced = cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)
-        enhanced_image = Image.fromarray(enhanced)
+        # Clean up temp file
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+            
+        # Save enhanced image
+        output_path = os.path.join("output_images", f"enhanced_{domain}.jpg")
+        enhanced_image.save(output_path)
         
-        return enhanced_image, f"Detected: {domain} (Confidence: {confidence:.2%})"
+        result_text = f"""
+        Detected: {domain} (Confidence: {confidence:.2%})
+        Enhancements Applied: {details}
+        Enhanced image saved to: {output_path}
+        """
+        
+        return enhanced_image, result_text
         
     except Exception as e:
         return None, f"Error: {str(e)}"
@@ -48,14 +56,23 @@ def process_image(input_image):
 # Create the Gradio interface
 demo = gr.Interface(
     fn=process_image,
-    inputs=gr.Image(type="pil"),
+    inputs=[
+        gr.Image(type="pil", label="Upload Image")
+    ],
     outputs=[
         gr.Image(type="pil", label="Enhanced Image"),
-        gr.Textbox(label="Result")
+        gr.Textbox(label="Analysis Results", lines=3)
     ],
-    title="Adaptive Image Enhancement System",
-    description="Upload an image to enhance it based on its content type."
+    title="Advanced Adaptive Image Enhancement System",
+    description="""
+    Upload any image to automatically enhance it based on its content type.
+    The system detects whether it's a product, document, or landscape image
+    and applies appropriate enhancements.
+    """,
 )
 
 if __name__ == "__main__":
+    # Create output directory if it doesn't exist
+    if not os.path.exists("output_images"):
+        os.makedirs("output_images")
     demo.launch()
