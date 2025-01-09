@@ -1,32 +1,29 @@
 import cv2
 import numpy as np
 from skimage.metrics import structural_similarity as ssim
-from PIL import Image
+from skimage.metrics import peak_signal_noise_ratio as psnr
 
-class ImageEvaluator:
+class ImageQualityMetrics:
     @staticmethod
-    def calculate_metrics(original_image, enhanced_image):
-        """Calculate quality metrics between original and enhanced images"""
-        # Convert PIL images to cv2 format
-        orig = cv2.cvtColor(np.array(original_image), cv2.COLOR_RGB2BGR)
-        enhanced = cv2.cvtColor(np.array(enhanced_image), cv2.COLOR_RGB2BGR)
-        
-        # Convert to grayscale for SSIM
-        orig_gray = cv2.cvtColor(orig, cv2.COLOR_BGR2GRAY)
-        enhanced_gray = cv2.cvtColor(enhanced, cv2.COLOR_BGR2GRAY)
-        
-        # Calculate PSNR
-        mse = np.mean((orig - enhanced) ** 2)
-        if mse == 0:
-            psnr = 100
-        else:
-            PIXEL_MAX = 255.0
-            psnr = 20 * np.log10(PIXEL_MAX / np.sqrt(mse))
+    def calculate_metrics(original, enhanced):
+        """Calculate image quality metrics"""
+        # Convert images to grayscale for SSIM
+        original_gray = cv2.cvtColor(np.array(original), cv2.COLOR_RGB2GRAY)
+        enhanced_gray = cv2.cvtColor(np.array(enhanced), cv2.COLOR_RGB2GRAY)
         
         # Calculate SSIM
-        ssim_score = ssim(orig_gray, enhanced_gray)
+        ssim_score = ssim(original_gray, enhanced_gray)
+        
+        # Calculate PSNR
+        psnr_score = psnr(original_gray, enhanced_gray)
+        
+        # Calculate Brightness
+        brightness_original = np.mean(original_gray)
+        brightness_enhanced = np.mean(enhanced_gray)
+        brightness_change = ((brightness_enhanced - brightness_original) / brightness_original) * 100
         
         return {
-            'psnr': psnr,
-            'ssim': ssim_score
+            'ssim': ssim_score,
+            'psnr': psnr_score,
+            'brightness_change': brightness_change
         }
